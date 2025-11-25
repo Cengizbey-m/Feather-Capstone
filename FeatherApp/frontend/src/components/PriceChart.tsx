@@ -1,0 +1,191 @@
+import { useState, useEffect } from 'react'
+import { TrendingUp, TrendingDown, Activity } from 'lucide-react'
+
+interface PriceChartProps {
+  symbol: string
+  data?: {
+    price: number
+    change: number
+    changePercent: number
+    volume: number
+    high: number
+    low: number
+  }
+  isLoading?: boolean
+}
+
+export const PriceChart = ({ symbol, data, isLoading }: PriceChartProps) => {
+  const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y'>('1D')
+  
+  // Mock price data generation
+  const generateMockData = (period: string) => {
+    const points = period === '1D' ? 24 : period === '1W' ? 7 : period === '1M' ? 30 : period === '3M' ? 90 : 365
+    const basePrice = data?.price || 100
+    const volatility = 0.02
+    
+    return Array.from({ length: points }, (_, i) => {
+      const randomChange = (Math.random() - 0.5) * volatility
+      const price = basePrice * (1 + randomChange * (i + 1))
+      return {
+        time: new Date(Date.now() - (points - i) * (24 * 60 * 60 * 1000) / points),
+        price: Math.max(price, basePrice * 0.5), // Prevent negative prices
+        volume: Math.floor(Math.random() * 1000000) + 100000
+      }
+    })
+  }
+
+  const [chartData, setChartData] = useState(generateMockData(timeframe))
+
+  useEffect(() => {
+    setChartData(generateMockData(timeframe))
+  }, [timeframe, symbol])
+
+  if (isLoading) {
+    return (
+      <div className="card p-6">
+        <div className="animate-pulse">
+          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-4"></div>
+          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
+        </div>
+      </div>
+    )
+  }
+
+  const currentPrice = data?.price || 150.25
+  const change = data?.change || 2.45
+  const changePercent = data?.changePercent || 1.66
+  const isPositive = change >= 0
+
+  // Simple SVG chart
+  const maxPrice = Math.max(...chartData.map(d => d.price))
+  const minPrice = Math.min(...chartData.map(d => d.price))
+  const priceRange = maxPrice - minPrice
+  const width = 400
+  const height = 200
+
+  const points = chartData.map((point, index) => {
+    const x = (index / (chartData.length - 1)) * width
+    const y = height - ((point.price - minPrice) / priceRange) * height
+    return `${x},${y}`
+  }).join(' ')
+
+  return (
+    <div className="card p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {symbol} Price Chart
+          </h3>
+          <div className="flex items-center space-x-4 mt-2">
+            <div className="flex items-center space-x-2">
+              <span className="text-2xl font-bold text-gray-900 dark:text-white">
+                ${currentPrice.toFixed(2)}
+              </span>
+              <div className={`flex items-center space-x-1 ${
+                isPositive ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {isPositive ? (
+                  <TrendingUp className="h-4 w-4" />
+                ) : (
+                  <TrendingDown className="h-4 w-4" />
+                )}
+                <span className="font-medium">
+                  {isPositive ? '+' : ''}{change.toFixed(2)} ({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <Activity className="h-4 w-4 text-gray-400" />
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            Mock Data
+          </span>
+        </div>
+      </div>
+
+      {/* Timeframe Selector */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {(['1D', '1W', '1M', '3M', '1Y'] as const).map((period) => (
+          <button
+            key={period}
+            onClick={() => setTimeframe(period)}
+            type="button"
+            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+              timeframe === period
+                ? 'border-primary-500 bg-primary-600 text-white shadow-md hover:bg-primary-500'
+                : 'border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
+            }`}
+          >
+            {period}
+          </button>
+        ))}
+      </div>
+
+      {/* Chart */}
+      <div className="relative">
+        <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
+          {/* Grid lines */}
+          <defs>
+            <pattern id="grid" width="40" height="20" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 20" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.1"/>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+          
+          {/* Price line */}
+          <polyline
+            fill="none"
+            stroke={isPositive ? "#10b981" : "#ef4444"}
+            strokeWidth="2"
+            points={points}
+            className="drop-shadow-sm"
+          />
+          
+          {/* Area under curve */}
+          <polygon
+            points={`0,${height} ${points} ${width},${height}`}
+            fill={isPositive ? "url(#greenGradient)" : "url(#redGradient)"}
+            opacity="0.1"
+          />
+          
+          {/* Gradients */}
+          <defs>
+            <linearGradient id="greenGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#10b981" stopOpacity="0.3"/>
+              <stop offset="100%" stopColor="#10b981" stopOpacity="0"/>
+            </linearGradient>
+            <linearGradient id="redGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3"/>
+              <stop offset="100%" stopColor="#ef4444" stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="text-center">
+          <div className="text-sm text-gray-500 dark:text-gray-400">High</div>
+          <div className="font-semibold text-gray-900 dark:text-white">
+            ${(maxPrice).toFixed(2)}
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="text-sm text-gray-500 dark:text-gray-400">Low</div>
+          <div className="font-semibold text-gray-900 dark:text-white">
+            ${(minPrice).toFixed(2)}
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="text-sm text-gray-500 dark:text-gray-400">Volume</div>
+          <div className="font-semibold text-gray-900 dark:text-white">
+            {data?.volume ? (data.volume / 1000000).toFixed(1) + 'M' : 'N/A'}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

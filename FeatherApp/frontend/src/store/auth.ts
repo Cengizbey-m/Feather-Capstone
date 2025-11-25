@@ -1,0 +1,45 @@
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import type { User } from '@/types'
+
+interface AuthState {
+  user: User | null
+  token: string | null
+  isAuthenticated: boolean
+  login: (user: User, token: string) => void
+  logout: () => void
+}
+
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      // TEMPORARY: Mock user for development
+      user: {
+        id: 1,
+        email: 'demo@feather.com',
+        is_active: true,
+      },
+      token: 'mock-jwt-token-for-development',
+      isAuthenticated: true,
+      login: (user: User, token: string) => {
+        localStorage.setItem('token', token)
+        localStorage.setItem('user', JSON.stringify(user))
+        set({ user, token, isAuthenticated: true })
+      },
+      logout: () => {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        set({ user: null, token: null, isAuthenticated: false })
+      },
+    }),
+    {
+      name: 'auth-storage',
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    }
+  )
+)
+
