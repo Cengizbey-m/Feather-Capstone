@@ -1,0 +1,27 @@
+# Node (frontend)
+FeatherApp/frontend/node_modules/
+FeatherApp/frontend/dist/
+FeatherApp/frontend/.env
+FeatherApp/frontend/.env.*
+FeatherApp/frontend/coverage/
+FeatherApp/frontend/.vercel/
+
+# Python (backend)
+FeatherApp/backend/venv/
+FeatherApp/backend/__pycache__/
+FeatherApp/backend/.pytest_cache/
+FeatherApp/backend/feather.db
+FeatherApp/backend/.env
+FeatherApp/backend/env.*
+
+# OS / IDE / Tooling
+.DS_Store
+**/.DS_Store
+**/.vscode/
+.cursor/
+.cache/
+*.log
+
+# Misc
+Thumbs.db
+
