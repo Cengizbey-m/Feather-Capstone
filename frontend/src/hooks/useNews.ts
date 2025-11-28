@@ -1,19 +1,25 @@
+// src/hooks/useNews.ts
 import { useQuery } from '@tanstack/react-query'
 import { newsApi } from '@/lib/api'
+import type { NewsResponse } from '@/types'
 
-export const useSymbolNews = (symbol: string, limit = 20) => {
-  return useQuery({
-    queryKey: ['news', 'symbol', symbol, limit],
-    queryFn: () => newsApi.getSymbolNews(symbol, limit),
+export const useGlobalNews = (limit: number, symbol?: string) =>
+  useQuery<NewsResponse>({
+    queryKey: ['globalNews', { limit, symbol }],
+    queryFn: () =>
+      symbol
+        ? newsApi.getSymbolNews(symbol, limit)
+        : newsApi.getGlobalNews(limit),
+  })
+export const useSymbolNews = (
+  symbol: string | undefined,
+  limit = 20
+) =>
+  useQuery<NewsResponse>({
+    queryKey: ['symbolNews', { symbol, limit }],
     enabled: !!symbol,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    queryFn: () =>
+      symbol
+        ? newsApi.getSymbolNews(symbol, limit)
+        : Promise.resolve({ items: [] }),
   })
-}
-
-export const useGlobalNews = (limit = 50) => {
-  return useQuery({
-    queryKey: ['news', 'global', limit],
-    queryFn: () => newsApi.getGlobalNews(limit),
-    staleTime: 2 * 60 * 1000, // 2 minutes
-  })
-}

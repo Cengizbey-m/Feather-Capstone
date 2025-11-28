@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { TrendingUp, TrendingDown, BarChart3, PieChart, Activity, Target } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Target } from 'lucide-react'
 
 interface ChartData {
   time: string
@@ -28,37 +28,55 @@ export const InteractiveChart = ({
   height = 400,
   showIndicators = true,
   showCrosshair = true,
-  onDataPointClick
+  onDataPointClick,
 }: InteractiveChartProps) => {
   const [hoveredPoint, setHoveredPoint] = useState<ChartData | null>(null)
-  const [selectedIndicator, setSelectedIndicator] = useState<'sma' | 'ema' | 'rsi' | 'macd'>('sma')
-  const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y'>('1M')
+  const [selectedIndicator, setSelectedIndicator] =
+    useState<'sma' | 'ema' | 'rsi' | 'macd'>('sma')
+  const [timeframe, setTimeframe] =
+    useState<'1D' | '1W' | '1M' | '3M' | '1Y'>('1M')
   const chartRef = useRef<HTMLDivElement>(null)
 
-  // Generate mock data if none provided
-  const chartData: ChartData[] = data.length > 0 ? data : Array.from({ length: 30 }, (_, i) => {
-    const basePrice = 150
-    const volatility = 0.02
-    const trend = Math.sin(i / 5) * 0.1
-    const random = (Math.random() - 0.5) * volatility
-    const price = basePrice * (1 + trend + random)
-    
-    return {
-      time: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString(),
-      price: price,
-      volume: Math.floor(Math.random() * 1000000) + 100000,
-      high: price * (1 + Math.random() * 0.02),
-      low: price * (1 - Math.random() * 0.02),
-      open: price * (1 + (Math.random() - 0.5) * 0.01),
-      close: price
-    }
-  })
+  // ---- Mock data fallback ----
+  const chartData: ChartData[] =
+    data.length > 0
+      ? data
+      : Array.from({ length: 30 }, (_, i) => {
+          const basePrice = 150
+          const volatility = 0.02
+          const trend = Math.sin(i / 5) * 0.1
+          const random = (Math.random() - 0.5) * volatility
+          const price = basePrice * (1 + trend + random)
 
-  const maxPrice = Math.max(...chartData.map(d => d.high))
-  const minPrice = Math.min(...chartData.map(d => d.low))
-  const priceRange = maxPrice - minPrice
+          return {
+            time: new Date(
+              Date.now() - (29 - i) * 24 * 60 * 60 * 1000
+            ).toISOString(),
+            price,
+            volume: Math.floor(Math.random() * 1000000) + 100000,
+            high: price * (1 + Math.random() * 0.02),
+            low: price * (1 - Math.random() * 0.02),
+            open: price * (1 + (Math.random() - 0.5) * 0.01),
+            close: price,
+          }
+        })
 
-  const getSMA = (period: number) => {
+  if (chartData.length === 0) {
+    return (
+      <div className="card p-6">
+        <p className="text-gray-500 dark:text-gray-400">
+          No chart data available for {symbol}.
+        </p>
+      </div>
+    )
+  }
+
+  const maxPrice = Math.max(...chartData.map((d) => d.high))
+  const minPrice = Math.min(...chartData.map((d) => d.low))
+  const priceRange = maxPrice - minPrice || 1
+
+  // ---- Indicators (fixed EMA!) ----
+  const getSMA = (period: number): (number | null)[] => {
     return chartData.map((_, i) => {
       if (i < period - 1) return null
       const slice = chartData.slice(i - period + 1, i + 1)
@@ -66,32 +84,43 @@ export const InteractiveChart = ({
     })
   }
 
-  const getEMA = (period: number): number[] => {
+  const getEMA = (period: number): (number | null)[] => {
     const multiplier = 2 / (period + 1)
-    return chartData.map((d, i) => {
-      if (i === 0) return d.close
-      const prevEMAs = getEMA(period)
-      const prevEMA: number = prevEMAs[i - 1] || d.close
-      return (d.close - prevEMA) * multiplier + prevEMA
+    const ema: (number | null)[] = []
+
+    chartData.forEach((d, i) => {
+      if (i === 0) {
+        ema.push(d.close)
+      } else {
+        const prev = ema[i - 1] ?? d.close
+        ema.push((d.close - prev) * multiplier + prev)
+      }
     })
+
+    return ema
   }
 
-  const getRSI = (period: number = 14) => {
+  const getRSI = (period: number = 14): (number | null)[] => {
     const gains: number[] = []
     const losses: number[] = []
-    
+
     for (let i = 1; i < chartData.length; i++) {
       const change = chartData[i].close - chartData[i - 1].close
       gains.push(change > 0 ? change : 0)
       losses.push(change < 0 ? Math.abs(change) : 0)
     }
-    
+
     return gains.map((_, i) => {
       if (i < period - 1) return null
-      const avgGain = gains.slice(i - period + 1, i + 1).reduce((sum, g) => sum + g, 0) / period
-      const avgLoss = losses.slice(i - period + 1, i + 1).reduce((sum, l) => sum + l, 0) / period
+      const avgGain =
+        gains.slice(i - period + 1, i + 1).reduce((sum, g) => sum + g, 0) /
+        period
+      const avgLoss =
+        losses.slice(i - period + 1, i + 1).reduce((sum, l) => sum + l, 0) /
+        period
+      if (avgLoss === 0) return 100
       const rs = avgGain / avgLoss
-      return 100 - (100 / (1 + rs))
+      return 100 - 100 / (1 + rs)
     })
   }
 
@@ -101,25 +130,46 @@ export const InteractiveChart = ({
 
   const renderLineChart = () => {
     const width = 800
-    const height = 400
+    const svgHeight = height
     const padding = 40
-    
-    const points = chartData.map((d, i) => {
-      const x = (i / (chartData.length - 1)) * (width - 2 * padding) + padding
-      const y = height - padding - ((d.price - minPrice) / priceRange) * (height - 2 * padding)
-      return `${x},${y}`
-    }).join(' ')
+
+    const points = chartData
+      .map((d, i) => {
+        const x =
+          (i / (chartData.length - 1 || 1)) * (width - 2 * padding) + padding
+        const y =
+          svgHeight -
+          padding -
+          ((d.price - minPrice) / priceRange) * (svgHeight - 2 * padding)
+        return `${x},${y}`
+      })
+      .join(' ')
 
     return (
-      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
-        {/* Grid lines */}
+      <svg
+        width="100%"
+        height={svgHeight}
+        viewBox={`0 0 ${width} ${svgHeight}`}
+        className="overflow-visible"
+      >
         <defs>
-          <pattern id="grid" width="40" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 20" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.1"/>
+          <pattern
+            id="grid"
+            width="40"
+            height="20"
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d="M 40 0 L 0 0 0 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="0.5"
+              opacity="0.1"
+            />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#grid)" />
-        
+
         {/* Price line */}
         <polyline
           fill="none"
@@ -128,134 +178,150 @@ export const InteractiveChart = ({
           points={points}
           className="drop-shadow-sm"
         />
-        
+
         {/* Area under curve */}
         <polygon
-          points={`${padding},${height - padding} ${points} ${width - padding},${height - padding}`}
+          points={`${padding},${svgHeight - padding} ${points} ${
+            width - padding
+          },${svgHeight - padding}`}
           fill="url(#gradient)"
           opacity="0.1"
         />
-        
-        {/* SMA Line */}
-        {selectedIndicator === 'sma' && sma20.map((value, i) => {
-          if (!value) return null
-          const x = (i / (chartData.length - 1)) * (width - 2 * padding) + padding
-          const y = height - padding - ((value - minPrice) / priceRange) * (height - 2 * padding)
-          return (
-            <circle
-              key={i}
-              cx={x}
-              cy={y}
-              r="2"
-              fill="#ef4444"
-              className="hover:r-4 transition-all"
-            />
-          )
-        })}
-        
-        {/* EMA Line */}
-        {selectedIndicator === 'ema' && ema12.map((value, i) => {
-          if (!value) return null
-          const x = (i / (chartData.length - 1)) * (width - 2 * padding) + padding
-          const y = height - padding - ((value - minPrice) / priceRange) * (height - 2 * padding)
-          return (
-            <circle
-              key={i}
-              cx={x}
-              cy={y}
-              r="2"
-              fill="#10b981"
-              className="hover:r-4 transition-all"
-            />
-          )
-        })}
-        
-        {/* RSI Line */}
-        {selectedIndicator === 'rsi' && rsi.map((value, i) => {
-          if (!value) return null
-          const x = (i / (chartData.length - 1)) * (width - 2 * padding) + padding
-          const y = height - padding - (value / 100) * (height - 2 * padding)
-          return (
-            <circle
-              key={i}
-              cx={x}
-              cy={y}
-              r="2"
-              fill="#f59e0b"
-              className="hover:r-4 transition-all"
-            />
-          )
-        })}
-        
-        {/* Gradients */}
+
+        {/* Indicator dots */}
+        {showIndicators && selectedIndicator === 'sma' &&
+          sma20.map((value, i) => {
+            if (value == null) return null
+            const x =
+              (i / (chartData.length - 1 || 1)) * (width - 2 * padding) +
+              padding
+            const y =
+              svgHeight -
+              padding -
+              ((value - minPrice) / priceRange) * (svgHeight - 2 * padding)
+            return (
+              <circle
+                key={i}
+                cx={x}
+                cy={y}
+                r="2"
+                fill="#ef4444"
+                className="hover:r-4 transition-all"
+              />
+            )
+          })}
+
+        {showIndicators && selectedIndicator === 'ema' &&
+          ema12.map((value, i) => {
+            if (value == null) return null
+            const x =
+              (i / (chartData.length - 1 || 1)) * (width - 2 * padding) +
+              padding
+            const y =
+              svgHeight -
+              padding -
+              ((value - minPrice) / priceRange) * (svgHeight - 2 * padding)
+            return (
+              <circle
+                key={i}
+                cx={x}
+                cy={y}
+                r="2"
+                fill="#10b981"
+                className="hover:r-4 transition-all"
+              />
+            )
+          })}
+
+        {showIndicators && selectedIndicator === 'rsi' &&
+          rsi.map((value, i) => {
+            if (value == null) return null
+            const x =
+              (i / (chartData.length - 1 || 1)) * (width - 2 * padding) +
+              padding
+            const y =
+              svgHeight -
+              padding -
+              (value / 100) * (svgHeight - 2 * padding)
+            return (
+              <circle
+                key={i}
+                cx={x}
+                cy={y}
+                r="2"
+                fill="#f59e0b"
+                className="hover:r-4 transition-all"
+              />
+            )
+          })}
+
         <defs>
-          <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3"/>
-            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
+          <linearGradient
+            id="gradient"
+            x1="0%"
+            y1="0%"
+            x2="0%"
+            y2="100%"
+          >
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
           </linearGradient>
         </defs>
-        
-        {/* Hover indicator */}
-        {hoveredPoint && (
-          <g>
-            <line
-              x1={(chartData.indexOf(hoveredPoint) / (chartData.length - 1)) * (width - 2 * padding) + padding}
-              y1={padding}
-              x2={(chartData.indexOf(hoveredPoint) / (chartData.length - 1)) * (width - 2 * padding) + padding}
-              y2={height - padding}
-              stroke="#6b7280"
-              strokeWidth="1"
-              strokeDasharray="5,5"
-            />
-            <circle
-              cx={(chartData.indexOf(hoveredPoint) / (chartData.length - 1)) * (width - 2 * padding) + padding}
-              cy={height - padding - ((hoveredPoint.price - minPrice) / priceRange) * (height - 2 * padding)}
-              r="4"
-              fill="#3b82f6"
-              stroke="white"
-              strokeWidth="2"
-            />
-          </g>
-        )}
       </svg>
     )
   }
 
   const renderCandlestickChart = () => {
     const width = 800
-    const height = 400
+    const svgHeight = height
     const padding = 40
-    const barWidth = (width - 2 * padding) / chartData.length * 0.8
+    const barWidth = ((width - 2 * padding) / chartData.length) * 0.8
 
     return (
-      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
+      <svg
+        width="100%"
+        height={svgHeight}
+        viewBox={`0 0 ${width} ${svgHeight}`}
+        className="overflow-visible"
+      >
         {chartData.map((d, i) => {
-          const x = (i / (chartData.length - 1)) * (width - 2 * padding) + padding
-          const openY = height - padding - ((d.open - minPrice) / priceRange) * (height - 2 * padding)
-          const closeY = height - padding - ((d.close - minPrice) / priceRange) * (height - 2 * padding)
-          const highY = height - padding - ((d.high - minPrice) / priceRange) * (height - 2 * padding)
-          const lowY = height - padding - ((d.low - minPrice) / priceRange) * (height - 2 * padding)
+          const x =
+            (i / (chartData.length - 1 || 1)) * (width - 2 * padding) + padding
+          const openY =
+            svgHeight -
+            padding -
+            ((d.open - minPrice) / priceRange) * (svgHeight - 2 * padding)
+          const closeY =
+            svgHeight -
+            padding -
+            ((d.close - minPrice) / priceRange) * (svgHeight - 2 * padding)
+          const highY =
+            svgHeight -
+            padding -
+            ((d.high - minPrice) / priceRange) * (svgHeight - 2 * padding)
+          const lowY =
+            svgHeight -
+            padding -
+            ((d.low - minPrice) / priceRange) * (svgHeight - 2 * padding)
           const isGreen = d.close > d.open
 
           return (
             <g key={i}>
-              {/* High-Low line */}
               <line
                 x1={x}
                 y1={highY}
                 x2={x}
                 y2={lowY}
-                stroke={isGreen ? "#10b981" : "#ef4444"}
+                stroke={isGreen ? '#10b981' : '#ef4444'}
                 strokeWidth="1"
               />
-              {/* Body */}
               <rect
                 x={x - barWidth / 2}
                 y={Math.min(openY, closeY)}
                 width={barWidth}
-                height={Math.abs(closeY - openY)}
-                fill={isGreen ? "#10b981" : "#ef4444"}
-                opacity={isGreen ? 0.8 : 0.8}
+                height={Math.max(Math.abs(closeY - openY), 1)}
+                fill={isGreen ? '#10b981' : '#ef4444'}
+                opacity={0.8}
               />
             </g>
           )
@@ -266,16 +332,23 @@ export const InteractiveChart = ({
 
   const renderVolumeChart = () => {
     const width = 800
-    const height = 200
+    const svgHeight = 200
     const padding = 40
-    const maxVolume = Math.max(...chartData.map(d => d.volume))
+    const maxVolume = Math.max(...chartData.map((d) => d.volume)) || 1
 
     return (
-      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
+      <svg
+        width="100%"
+        height={svgHeight}
+        viewBox={`0 0 ${width} ${svgHeight}`}
+        className="overflow-visible"
+      >
         {chartData.map((d, i) => {
-          const x = (i / (chartData.length - 1)) * (width - 2 * padding) + padding
-          const barHeight = (d.volume / maxVolume) * (height - 2 * padding)
-          const y = height - padding - barHeight
+          const x =
+            (i / (chartData.length - 1 || 1)) * (width - 2 * padding) + padding
+          const barHeight =
+            (d.volume / maxVolume) * (svgHeight - 2 * padding)
+          const y = svgHeight - padding - barHeight
 
           return (
             <rect
@@ -295,7 +368,7 @@ export const InteractiveChart = ({
 
   return (
     <div className="card p-6">
-      {/* Chart Header */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -319,11 +392,13 @@ export const InteractiveChart = ({
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-4">
           <select
             value={selectedIndicator}
-            onChange={(e) => setSelectedIndicator(e.target.value as any)}
+            onChange={(e) =>
+              setSelectedIndicator(e.target.value as any)
+            }
             className="input"
           >
             <option value="sma">SMA 20</option>
@@ -335,65 +410,10 @@ export const InteractiveChart = ({
       </div>
 
       {/* Chart */}
-      <div className="relative">
+      <div className="relative" ref={chartRef}>
         {type === 'line' && renderLineChart()}
         {type === 'candlestick' && renderCandlestickChart()}
         {type === 'volume' && renderVolumeChart()}
-        
-        {/* Hover Tooltip */}
-        {hoveredPoint && (
-          <div className="absolute top-4 right-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 min-w-[200px]">
-            <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-              {new Date(hoveredPoint.time).toLocaleDateString()}
-            </div>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Price:</span>
-                <span className="font-medium">${hoveredPoint.price.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">High:</span>
-                <span className="font-medium">${hoveredPoint.high.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Low:</span>
-                <span className="font-medium">${hoveredPoint.low.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Volume:</span>
-                <span className="font-medium">{(hoveredPoint.volume / 1000000).toFixed(1)}M</span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Chart Stats */}
-      <div className="grid grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-        <div className="text-center">
-          <div className="text-sm text-gray-500 dark:text-gray-400">High</div>
-          <div className="font-semibold text-gray-900 dark:text-white">
-            ${maxPrice.toFixed(2)}
-          </div>
-        </div>
-        <div className="text-center">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Low</div>
-          <div className="font-semibold text-gray-900 dark:text-white">
-            ${minPrice.toFixed(2)}
-          </div>
-        </div>
-        <div className="text-center">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Change</div>
-          <div className="font-semibold text-gray-900 dark:text-white">
-            {((chartData[chartData.length - 1]?.price - chartData[0]?.price) / chartData[0]?.price * 100).toFixed(2)}%
-          </div>
-        </div>
-        <div className="text-center">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Volume</div>
-          <div className="font-semibold text-gray-900 dark:text-white">
-            {(chartData.reduce((sum, d) => sum + d.volume, 0) / 1000000).toFixed(1)}M
-          </div>
-        </div>
       </div>
     </div>
   )

@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { Plus, Trash2, Bell, BellOff } from 'lucide-react'
 import { useAlerts } from '@/hooks/useAlerts'
 import { AlertForm } from '@/components/AlertForm'
+import { useEffect } from 'react'
+import { systemApi } from '@/lib/api'
 import type { Alert, AlertCreate } from '@/types'
 
 export const AlertsPage = () => {
   const { alerts, isLoading, createAlert, deleteAlert } = useAlerts()
   const [showForm, setShowForm] = useState(false)
+
 
   const handleCreateAlert = (alertData: AlertCreate) => {
     createAlert(alertData)

@@ -30,8 +30,15 @@ export const PredictionCard = ({ data, isLoading }: PredictionCardProps) => {
   }
 
   const { symbol, prediction, model } = data
+
   const isPositive = prediction.direction === 'up'
-  const confidencePercentage = Math.round(prediction.confidence * 100)
+  const confidencePercentage =
+    prediction.confidence != null
+      ? Math.round(prediction.confidence * 100)
+      : null
+
+  const targetPrice = prediction.targetPrice
+  const horizonDays = prediction.horizonDays
 
   return (
     <div className="card p-6">
@@ -56,40 +63,60 @@ export const PredictionCard = ({ data, isLoading }: PredictionCardProps) => {
             <TrendingDown className="h-8 w-8 text-red-500" />
           )}
           <div>
-            <div className={`text-2xl font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-              {isPositive ? '+' : ''}{prediction.deltaPct.toFixed(2)}%
+            <div
+              className={`text-2xl font-bold ${
+                isPositive ? 'text-green-600' : 'text-red-600'
+              }`}
+            >
+              {targetPrice != null
+                ? `$${targetPrice.toFixed(2)}`
+                : `${isPositive ? '+' : ''}${prediction.deltaPct.toFixed(2)}%`}
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              {isPositive ? 'Expected to rise' : 'Expected to fall'}
+              {targetPrice != null && horizonDays
+                ? `Model forecast over ${horizonDays}-day horizon`
+                : isPositive
+                ? 'Expected to rise'
+                : 'Expected to fall'}
             </div>
           </div>
         </div>
 
-        {/* Confidence Bar */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Confidence</span>
-            <span className="font-medium text-gray-900 dark:text-white">
-              {confidencePercentage}%
-            </span>
+        {/* Confidence Bar – only if backend provides it */}
+        {confidencePercentage != null && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">
+                Confidence
+              </span>
+              <span className="font-medium text-gray-900 dark:text-white">
+                {confidencePercentage}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  confidencePercentage >= 70
+                    ? 'bg-green-500'
+                    : confidencePercentage >= 50
+                    ? 'bg-yellow-500'
+                    : 'bg-red-500'
+                }`}
+                style={{ width: `${confidencePercentage}%` }}
+              />
+            </div>
           </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full transition-all duration-300 ${
-                confidencePercentage >= 70
-                  ? 'bg-green-500'
-                  : confidencePercentage >= 50
-                  ? 'bg-yellow-500'
-                  : 'bg-red-500'
-              }`}
-              style={{ width: `${confidencePercentage}%` }}
-            />
-          </div>
-        </div>
+        )}
 
-        {/* Timestamp */}
-        <div className="text-xs text-gray-500 dark:text-gray-400">
-          As of {new Date(data.asOf).toLocaleString()}
+        {/* Timestamp + extra info */}
+        <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+          <div>As of {new Date(data.asOf).toLocaleString()}</div>
+          {horizonDays && (
+            <div>Horizon: {horizonDays} day{horizonDays !== 1 ? 's' : ''}</div>
+          )}
+          {targetPrice != null && (
+            <div>Predicted price: ${targetPrice.toFixed(2)}</div>
+          )}
         </div>
       </div>
     </div>

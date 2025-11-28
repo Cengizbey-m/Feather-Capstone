@@ -1,88 +1,81 @@
-import { useState } from 'react'
-import { Search, Check } from 'lucide-react'
+// src/components/TickerSearch.tsx
+import { useState, useMemo } from 'react'
+import { Search } from 'lucide-react'
+import { useTickers } from '@/hooks/useTickers'
 
 interface TickerSearchProps {
   onSelect: (symbol: string) => void
   placeholder?: string
 }
 
-export const TickerSearch = ({ onSelect, placeholder = 'Search for a ticker symbol...' }: TickerSearchProps) => {
+export const TickerSearch = ({ onSelect, placeholder }: TickerSearchProps) => {
   const [query, setQuery] = useState('')
-  const [isOpen, setIsOpen] = useState(false)
+  const { data: tickers, isLoading } = useTickers()
 
-  // Common ticker symbols for suggestions
-  const commonSymbols = [
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX',
-    'AMD', 'INTC', 'CRM', 'ORCL', 'ADBE', 'PYPL', 'UBER', 'LYFT'
-  ]
+  const filtered = useMemo(() => {
+    if (!tickers) return []
+    if (!query.trim()) return tickers.slice(0, 10)
 
-  const filteredSymbols = commonSymbols.filter(symbol =>
-    symbol.toLowerCase().includes(query.toLowerCase())
-  )
+    const q = query.toLowerCase()
+    return tickers
+      .filter(
+        (t) =>
+          t.ticker.toLowerCase().includes(q) ||
+          t.name.toLowerCase().includes(q)
+      )
+      .slice(0, 10)
+  }, [tickers, query])
 
   const handleSelect = (symbol: string) => {
+    setQuery(symbol)
     onSelect(symbol)
-    setQuery('')
-    setIsOpen(false)
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (query.trim()) {
-      handleSelect(query.trim().toUpperCase())
-    }
   }
 
   return (
     <div className="relative">
-      <form onSubmit={handleSubmit} className="relative">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
-              setIsOpen(true)
-            }}
-            onFocus={() => setIsOpen(true)}
-            placeholder={placeholder}
-            className="input pl-10 pr-4 w-full"
-            autoComplete="off"
-          />
-        </div>
-      </form>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={placeholder ?? 'Search for a specific symbol...'}
+          className="input pl-10 w-full"
+        />
+      </div>
 
       {/* Dropdown */}
-      {isOpen && (query.length > 0 || filteredSymbols.length > 0) && (
-        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
-          {filteredSymbols.length > 0 ? (
-            <div className="py-1">
-              {filteredSymbols.map((symbol) => (
-                <button
-                  key={symbol}
-                  onClick={() => handleSelect(symbol)}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between"
-                >
-                  <span>{symbol}</span>
-                  <Check className="h-4 w-4 text-green-500" />
-                </button>
-              ))}
+      {query.length > 0 && (
+        <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-slate-800">
+          {isLoading ? (
+            <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+              Loading symbols…
             </div>
-          ) : query.length > 0 ? (
-            <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+          ) : filtered.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
               No symbols found
             </div>
-          ) : null}
+          ) : (
+            <ul className="max-h-60 overflow-y-auto">
+              {filtered.map((t) => (
+                <li
+                  key={t.id}
+                  className="cursor-pointer px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700"
+                  onClick={() => handleSelect(t.ticker)}
+                >
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {t.ticker}
+                  </span>
+                  {t.name && (
+                    <span className="ml-2 text-gray-500 dark:text-gray-400">
+                      {t.name}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      )}
-
-      {/* Click outside to close */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-5"
-          onClick={() => setIsOpen(false)}
-        />
       )}
     </div>
   )

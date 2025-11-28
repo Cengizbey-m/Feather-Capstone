@@ -6,10 +6,9 @@ import { LoginPage } from '@/pages/LoginPage'
 import { TickerPage } from '@/pages/TickerPage'
 import { NewsPage } from '@/pages/NewsPage'
 import { AlertsPage } from '@/pages/AlertsPage'
-import { ScreenerPage } from '@/pages/ScreenerPage'
 import { AnalyticsPage } from '@/pages/AnalyticsPage'
+// import { ScreenerPage } from '@/pages/ScreenerPage'
 // import { SocialPage } from '@/pages/SocialPage' // Commented out - needs account management
-import { ProfessionalNewsPage } from '@/pages/ProfessionalNewsPage'
 import { MarketPage } from '@/pages/MarketPage'
 // import { PortfolioPage } from '@/pages/PortfolioPage' // Commented out - needs account info
 import { RecommendationsPage } from '@/pages/RecommendationsPage'
@@ -30,9 +29,8 @@ function App() {
                 {/* <Route path="/" element={<DashboardPage />} /> */} {/* Commented out - keep for backburner */}
                 <Route path="/" element={<MarketPage />} /> {/* Default to Market page */}
                 <Route path="/ticker/:symbol" element={<TickerPage />} />
-                <Route path="/news" element={<ProfessionalNewsPage />} />
+                <Route path="/news" element={<NewsPage />} />
                 <Route path="/alerts" element={<AlertsPage />} />
-                <Route path="/screener" element={<ScreenerPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
                 {/* <Route path="/social" element={<SocialPage />} /> */} {/* Commented out - needs account management */}
                 <Route path="/market" element={<MarketPage />} />

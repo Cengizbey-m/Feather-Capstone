@@ -1,8 +1,8 @@
+// src/components/WatchlistTable.tsx
 import { useState } from 'react'
 import { Plus, X, TrendingUp, TrendingDown } from 'lucide-react'
 import { useWatchlist } from '@/hooks/useWatchlist'
 import { usePrediction } from '@/hooks/usePredictions'
-import { PredictionCard } from './PredictionCard'
 import { TickerSearch } from './TickerSearch'
 
 export const WatchlistTable = () => {
@@ -111,7 +111,7 @@ const WatchlistItem = ({ symbol, onRemove }: WatchlistItemProps) => {
       >
         <X className="h-4 w-4" />
       </button>
-      
+
       <div className="mb-3">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           {symbol}
@@ -131,15 +131,27 @@ const WatchlistItem = ({ symbol, onRemove }: WatchlistItemProps) => {
             ) : (
               <TrendingDown className="h-4 w-4 text-red-500" />
             )}
-            <span className={`font-medium ${
-              prediction.prediction.direction === 'up' ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {prediction.prediction.direction === 'up' ? '+' : ''}{prediction.prediction.deltaPct.toFixed(2)}%
+            <span
+              className={`font-medium ${
+                prediction.prediction.direction === 'up'
+                  ? 'text-green-600'
+                  : 'text-red-600'
+              }`}
+            >
+              {prediction.prediction.direction === 'up' ? '+' : ''}
+              {prediction.prediction.deltaPct.toFixed(2)}%
             </span>
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            {Math.round(prediction.prediction.confidence * 100)}% confidence
-          </div>
+
+          {/* Safely handle nullable confidence */}
+          {(() => {
+            const confidence = prediction.prediction.confidence ?? 0
+            return (
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {Math.round(confidence * 100)}% confidence
+              </div>
+            )
+          })()}
         </div>
       ) : (
         <div className="text-sm text-gray-500 dark:text-gray-400">

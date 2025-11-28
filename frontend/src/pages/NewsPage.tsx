@@ -1,13 +1,23 @@
+// src/pages/NewsPage.tsx
 import { useState } from 'react'
-import { Search, Filter } from 'lucide-react'
+import { Filter } from 'lucide-react'
 import { useGlobalNews } from '@/hooks/useNews'
 import { NewsList } from '@/components/NewsList'
 import { TickerSearch } from '@/components/TickerSearch'
+import { useQuote } from '@/hooks/useQuote'              
+import { formatCurrency, formatPercentage } from '@/lib/utils'
 
 export const NewsPage = () => {
   const [selectedSymbol, setSelectedSymbol] = useState<string | undefined>()
   const [limit, setLimit] = useState(50)
-  const { data: news, isLoading, error } = useGlobalNews(limit)
+  const { data: news, isLoading, error } = useGlobalNews(limit, selectedSymbol)
+
+  // 🔹 Fetch quote whenever a symbol is selected
+  const {
+    data: quote,
+    isLoading: isQuoteLoading,
+    error: quoteError,
+  } = useQuote(selectedSymbol)
 
   const handleSymbolSelect = (symbol: string) => {
     setSelectedSymbol(symbol)
@@ -54,7 +64,8 @@ export const NewsPage = () => {
             {selectedSymbol && (
               <div className="mt-2 flex items-center space-x-2">
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Showing news for: <span className="font-medium">{selectedSymbol}</span>
+                  Showing news for:{' '}
+                  <span className="font-medium">{selectedSymbol}</span>
                 </span>
                 <button
                   onClick={handleClearFilter}
@@ -82,11 +93,12 @@ export const NewsPage = () => {
             </select>
           </div>
 
-          {/* Search Stats */}
-          <div className="flex items-end">
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+          {/* Search Stats + Quote */}
+          <div className="flex flex-col justify-end space-y-1 text-sm text-gray-500 dark:text-gray-400">
+            {/* Article stats */}
+            <div>
               {isLoading ? (
-                <div className="animate-pulse">Loading...</div>
+                <div className="animate-pulse">Loading news…</div>
               ) : (
                 <div>
                   <div className="font-medium text-gray-900 dark:text-white">
@@ -98,6 +110,36 @@ export const NewsPage = () => {
                 </div>
               )}
             </div>
+
+            {/* 🔹 Quote stats */}
+            {selectedSymbol && (
+              <div className="mt-2">
+                {isQuoteLoading && <div className="animate-pulse">Loading quote…</div>}
+                {quoteError && (
+                  <div className="text-red-500">Quote unavailable for {selectedSymbol}</div>
+                )}
+                {quote && !isQuoteLoading && !quoteError && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Latest price for{' '}
+                    <span className="font-semibold">{quote.ticker}</span>:{' '}
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {formatCurrency(quote.current_price)}
+                    </span>{' '}
+                    <span
+                      className={
+                        quote.percent_change > 0
+                          ? 'text-green-600 dark:text-green-400'
+                          : quote.percent_change < 0
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }
+                    >
+                      {formatPercentage(quote.percent_change)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
