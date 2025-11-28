@@ -1,11 +1,5 @@
 import { useState } from 'react'
-import {
-  TrendingUp,
-  TrendingDown,
-  Activity,
-  Plus,
-} from 'lucide-react'
-
+import { TrendingUp, TrendingDown, Activity, Plus, BarChart3, PieChart, Zap } from 'lucide-react'
 import { WatchlistTable } from '@/components/WatchlistTable'
 import { TickerSearch } from '@/components/TickerSearch'
 import { usePrediction } from '@/hooks/usePredictions'
@@ -23,36 +17,14 @@ import { FearGreedIndex } from '@/components/FearGreedIndex'
 import { MarketOverview } from '@/components/MarketOverview'
 import { PortfolioTracker } from '@/components/PortfolioTracker'
 import { AIRecommendations } from '@/components/AIRecommendations'
-import { usePriceHistory } from '@/hooks/useHistory'
 
 export const DashboardPage = () => {
-  // If nothing selected yet, treat SPY as the “home” symbol
   const [selectedSymbol, setSelectedSymbol] = useState('')
-  const currentSymbol = (selectedSymbol || 'SPY').toUpperCase()
-
-  // Only fetch prediction when user has picked something (your old behaviour)
-  const {
-    data: prediction,
-    isLoading: predictionLoading,
-  } = usePrediction(selectedSymbol)
-
+  const { data: prediction, isLoading: predictionLoading } = usePrediction(selectedSymbol)
   const { data: news, isLoading: newsLoading } = useGlobalNews(10)
 
-  // Real OHLCV history (used by PriceChart + InteractiveChart)
-  const {
-    data: history,
-    isLoading: historyLoading,
-    error: historyError,
-  } = usePriceHistory(currentSymbol, 60)
-
-  const candles = history?.items ?? []
-  const hasHistory = candles.length > 0
-
-  const last = hasHistory ? candles[candles.length - 1] : undefined
-  const first = hasHistory ? candles[0] : undefined
-
   const handleSymbolSelect = (symbol: string) => {
-    setSelectedSymbol(symbol.toUpperCase())
+    setSelectedSymbol(symbol)
   }
 
   return (
@@ -67,7 +39,7 @@ export const DashboardPage = () => {
         </p>
       </div>
 
-      {/* Quick Search / Prediction */}
+      {/* Quick Search */}
       <div className="card p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
           Quick Prediction Search
@@ -85,11 +57,13 @@ export const DashboardPage = () => {
         )}
       </div>
 
-      {/* Market Overview Cards (still mocked – fine for now) */}
+      {/* Market Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="card p-6">
           <div className="flex items-center">
-            <TrendingUp className="h-8 w-8 text-green-500" />
+            <div className="flex-shrink-0">
+              <TrendingUp className="h-8 w-8 text-green-500" />
+            </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                 Bullish Predictions
@@ -103,7 +77,9 @@ export const DashboardPage = () => {
 
         <div className="card p-6">
           <div className="flex items-center">
-            <TrendingDown className="h-8 w-8 text-red-500" />
+            <div className="flex-shrink-0">
+              <TrendingDown className="h-8 w-8 text-red-500" />
+            </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                 Bearish Predictions
@@ -117,7 +93,9 @@ export const DashboardPage = () => {
 
         <div className="card p-6">
           <div className="flex items-center">
-            <Activity className="h-8 w-8 text-blue-500" />
+            <div className="flex-shrink-0">
+              <Activity className="h-8 w-8 text-blue-500" />
+            </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                 Avg Confidence
@@ -130,70 +108,86 @@ export const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Watchlist & Portfolio widgets (still mostly UI) */}
-      <WatchlistTable />
-      <PortfolioSummary />
+      {/* Watchlist */}
+      <div>
+        <WatchlistTable />
+      </div>
 
-      {/* REAL Price summary + mini chart */}
-      {hasHistory && last && first && (
-        <PriceChart
-          symbol={currentSymbol}
-          data={{
-            price: last.close,
-            change: last.close - first.close,
-            changePercent: ((last.close - first.close) / first.close) * 100,
-            volume: last.volume,
-            high: Math.max(...candles.map((c) => c.high)),
-            low: Math.min(...candles.map((c) => c.low)),
-          }}
-          isLoading={historyLoading}
-        />
-      )}
+      {/* Portfolio Summary */}
+      <div>
+        <PortfolioSummary />
+      </div>
 
-      {/* History loading / error states */}
-      {historyLoading && (
-        <div className="card p-4">Loading price history…</div>
-      )}
-      {historyError && (
-        <div className="card p-4 text-red-600">
-          Failed to load price history for {currentSymbol}.
+      {/* Price Chart for Selected Symbol */}
+      {selectedSymbol && (
+        <div>
+          <PriceChart 
+            symbol={selectedSymbol}
+            data={{
+              price: 150.25,
+              change: 2.45,
+              changePercent: 1.66,
+              volume: 45234567,
+              high: 152.30,
+              low: 148.90
+            }}
+          />
         </div>
       )}
 
-      {/* Full OHLCV Interactive chart */}
-      {hasHistory && (
-        <InteractiveChart
-          symbol={currentSymbol}
-          data={candles.map((candle) => ({
-          // force to string + normalize
-          time: new Date(candle.timestamp as any).toISOString(),
-          price: candle.close,
-          volume: candle.volume,
-          high: candle.high,
-          low: candle.low,
-          open: candle.open,
-          close: candle.close,
-      }))}
+      {/* Sentiment Analysis */}
+      <div>
+        <SentimentAnalyzer symbol={selectedSymbol} />
+      </div>
 
-
-          type="candlestick"
-          height={400}
-          showIndicators={true}
-          showCrosshair={true}
-        />
+      {/* Interactive Chart */}
+      {selectedSymbol && (
+        <div>
+          <InteractiveChart 
+            symbol={selectedSymbol}
+            type="line"
+            showIndicators={true}
+            showCrosshair={true}
+          />
+        </div>
       )}
 
-      {/* Sentiment / analytics / other widgets (still mostly UI) */}
-      <SentimentAnalyzer symbol={currentSymbol} />
-      <FearGreedIndex />
-      <AnalyticsDashboard />
-      <AIInsights symbol={currentSymbol} />
-      <MarketOverview />
-      <PortfolioTracker />
-      <AIRecommendations />
-      <SocialFeed />
+      {/* Fear & Greed Index */}
+      <div>
+        <FearGreedIndex />
+      </div>
 
-      {/* Latest News (from backend) */}
+      {/* Analytics Dashboard */}
+      <div>
+        <AnalyticsDashboard />
+      </div>
+
+      {/* AI Insights */}
+      <div>
+        <AIInsights symbol={selectedSymbol} />
+      </div>
+
+      {/* Market Overview */}
+      <div>
+        <MarketOverview />
+      </div>
+
+      {/* Portfolio Tracker */}
+      <div>
+        <PortfolioTracker />
+      </div>
+
+      {/* AI Recommendations */}
+      <div>
+        <AIRecommendations />
+      </div>
+
+      {/* Social Feed */}
+      <div>
+        <SocialFeed />
+      </div>
+
+      {/* Latest News */}
       <div>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">

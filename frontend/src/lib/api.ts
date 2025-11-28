@@ -1,4 +1,3 @@
-// src/lib/api.ts
 import axios from 'axios'
 import type {
   LoginRequest,
@@ -11,47 +10,23 @@ import type {
   AlertResponse,
   AlertCreate,
   Alert,
-  PriceCandle,
-  PriceHistoryResponse,
-  Quote,
 } from '@/types'
 
-// ----------------------------------------
-// Local types for Screener
-// ----------------------------------------
-type ScreenerItem = {
-  id: number
-  ticker: string
-  name: string
-  sector: string
-  current_price: number
-}
-
-export type ScreenerResponse = {
-  results: ScreenerItem[]
-  total: number
-}
-
-// ================================================
-// Base URL Setup
-// ================================================
-const API_BASE_URL =
-  (import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:5000'
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000'
 
 console.log('API Base URL:', API_BASE_URL)
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 10000, // 10 second timeout
   headers: {
     'Content-Type': 'application/json',
-    Accept: 'application/json',
+    'Accept': 'application/json',
   },
+  // Removed withCredentials to fix CORS wildcard issue
 })
 
-// ================================================
-// Interceptors
-// ================================================
+// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
@@ -60,34 +35,36 @@ api.interceptors.request.use(
     }
     return config
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    return Promise.reject(error)
+  }
 )
 
+// Response interceptor to handle errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     console.error('API Error:', error)
-
+    
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
     }
-
+    
+    // Handle network errors
     if (!error.response) {
       console.error('Network Error:', error.message)
     }
-
+    
     return Promise.reject(error)
   }
 )
 
-// ================================================
-// AUTH API
-// ================================================
+// Auth API
 export const authApi = {
   login: async (data: LoginRequest): Promise<LoginResponse> => {
-    // Mock login (you can replace with real auth)
+    // TEMPORARY: Mock login for development
     console.log('Mock login with:', { email: data.email, password: '***' })
     return new Promise((resolve) => {
       setTimeout(() => {
@@ -98,13 +75,14 @@ export const authApi = {
             id: 1,
             email: data.email,
             is_active: true,
-          },
+          }
         })
       }, 1000)
     })
   },
 
   getMe: (): Promise<User> => {
+    // TEMPORARY: Mock user for development
     return Promise.resolve({
       id: 1,
       email: 'demo@feather.com',
@@ -113,156 +91,126 @@ export const authApi = {
   },
 }
 
-// ================================================
-// TICKER API (Prediction + OHLCV History)
-// ================================================
+// Ticker API
 export const tickerApi = {
-  // existing getPrediction...
-
-  getPrediction: async (symbol: string): Promise<PredictionResponse> => {
-    const res = await api.get(`/api/stocks/${symbol}/prediction`)
-    const raw: any = res.data
-
-    const targetPrice = Number(raw.predicted_price)
-    const horizonDays = Number(raw.horizon_days ?? 0)
-
-    return {
-      symbol: (raw.ticker || symbol).toUpperCase(),
-      asOf: raw.created_at || new Date().toISOString(),
+  getPrediction: (symbol: string): Promise<PredictionResponse> => {
+    // TEMPORARY: Mock prediction for development
+    return Promise.resolve({
+      symbol: symbol.toUpperCase(),
+      asOf: new Date().toISOString(),
       prediction: {
-        deltaPct: 0,
-        direction: 'up',
-        confidence: 0.7,
-        // @ts-ignore
-        targetPrice,
-        // @ts-ignore
-        horizonDays,
+        deltaPct: (Math.random() - 0.5) * 5,
+        direction: Math.random() > 0.5 ? 'up' : 'down',
+        confidence: Math.random() * 0.3 + 0.7,
       },
       model: {
-        type: raw.model_name || 'RF+SVR_ensemble',
-        version: '0.0.1',
-      },
-    }
-  },
-
-  // existing getHistory...
-
-  getHistory: async (
-    symbol: string,
-    limit = 60
-  ): Promise<PriceHistoryResponse> => {
-    const res = await api.get<PriceCandle[]>(`/api/stocks/${symbol}/history`, {
-      params: { limit },
+        type: 'Mock SVR Model',
+        version: '1.0.0',
+      }
     })
-
-    return {
-      symbol: symbol.toUpperCase(),
-      items: res.data,
-    }
-  },
-
-  // ✅ NEW: GET QUOTE
-  getQuote: async (symbol: string): Promise<Quote> => {
-    const res = await api.get<Quote>(`/api/stocks/${symbol}/quote`)
-    return res.data
   },
 }
 
-
-// ================================================
-// NEWS API
-// ================================================
-type BackendNewsItem = {
-  title: string
-  summary: string
-  url: string
-  source: string
-  published_at: string
-}
-
+// News API
 export const newsApi = {
-  getSymbolNews: async (
-    symbol: string,
-    limit = 20
-  ): Promise<NewsResponse> => {
-    const res = await api.get<BackendNewsItem[]>(`/api/stocks/${symbol}/news`, {
-      params: { limit },
-    })
-
-    const items = res.data.map((item, index) => ({
-      id: `${symbol}-${index}-${item.published_at}`,
-      headline: item.title,
-      publishedAt: item.published_at,
-      url: item.url,
-      source: item.source,
-      summary: item.summary,
-      sentiment: 'Neutral' as const,
-      sentimentScore: 0,
+  getSymbolNews: (symbol: string, limit = 20): Promise<NewsResponse> => {
+    // TEMPORARY: Mock news for development
+    const mockNews = Array.from({ length: limit }, (_, i) => ({
+      id: `news-${i + 1}`,
+      headline: `${symbol} ${i % 2 === 0 ? 'surges' : 'drops'} on ${i % 3 === 0 ? 'earnings' : 'market'} news`,
+      publishedAt: new Date(Date.now() - i * 3600000).toISOString(),
+      url: `https://example.com/news/${symbol}-${i}`,
+      sentiment: ['Positive', 'Negative', 'Neutral'][i % 3] as 'Positive' | 'Negative' | 'Neutral',
+      sentimentScore: Math.random() * 2 - 1, // -1 to 1
     }))
-
-    return { items }
+    return Promise.resolve({ items: mockNews })
   },
 
-  getGlobalNews: async (limit = 50): Promise<NewsResponse> => {
-    return newsApi.getSymbolNews('SPY', limit)
-  },
-}
-
-// ================================================
-// SCREENER API
-// ================================================
-export const screenerApi = {
-  getScreener: async (): Promise<ScreenerResponse> => {
-    const res = await api.get<ScreenerResponse>('/api/screener')
-    return res.data
+  getGlobalNews: (limit = 50): Promise<NewsResponse> => {
+    // TEMPORARY: Mock global news for development
+    const mockNews = Array.from({ length: limit }, (_, i) => ({
+      id: `global-news-${i + 1}`,
+      headline: `Market ${i % 2 === 0 ? 'gains' : 'declines'} as ${i % 3 === 0 ? 'tech' : 'finance'} stocks ${i % 2 === 0 ? 'rise' : 'fall'}`,
+      publishedAt: new Date(Date.now() - i * 1800000).toISOString(),
+      url: `https://example.com/news/global-${i}`,
+      sentiment: ['Positive', 'Negative', 'Neutral'][i % 3] as 'Positive' | 'Negative' | 'Neutral',
+      sentimentScore: Math.random() * 2 - 1, // -1 to 1
+    }))
+    return Promise.resolve({ items: mockNews })
   },
 }
 
-// ================================================
-// WATCHLIST API
-// ================================================
+// Watchlist API
 export const watchlistApi = {
-  getWatchlist: async (): Promise<WatchlistResponse> => {
-    const res = await api.get<WatchlistResponse>('/api/watchlist')
-    return res.data
+  getWatchlist: (): Promise<WatchlistResponse> => {
+    // TEMPORARY: Mock watchlist for development
+    return Promise.resolve({
+      items: ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN']
+    })
   },
 
-  addToWatchlist: async (data: WatchlistCreate): Promise<void> => {
-    await api.post('/api/watchlist', data)
+  addToWatchlist: (data: WatchlistCreate): Promise<void> => {
+    // TEMPORARY: Mock add to watchlist for development
+    console.log('Mock adding to watchlist:', data)
+    return Promise.resolve()
   },
 
-  removeFromWatchlist: async (symbol: string): Promise<void> => {
-    await api.delete(`/api/watchlist/${symbol}`)
+  removeFromWatchlist: (symbol: string): Promise<void> => {
+    // TEMPORARY: Mock remove from watchlist for development
+    console.log('Mock removing from watchlist:', symbol)
+    return Promise.resolve()
   },
 }
 
-// ================================================
-// ALERTS API
-// ================================================
+// Alerts API
 export const alertsApi = {
-  getAlerts: async (): Promise<AlertResponse> => {
-    const res = await api.get<AlertResponse>('/api/alerts')
-    return res.data
+  getAlerts: (): Promise<AlertResponse> => {
+    // TEMPORARY: Mock alerts for development
+    const mockAlerts = [
+      {
+        id: 1,
+        symbol: 'AAPL',
+        rule: {
+          metric: 'price',
+          op: '>=' as const,
+          value: 150.00,
+        },
+        is_active: 'active' as const,
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 2,
+        symbol: 'TSLA',
+        rule: {
+          metric: 'price',
+          op: '<=' as const,
+          value: 200.00,
+        },
+        is_active: 'active' as const,
+        created_at: new Date().toISOString(),
+      }
+    ]
+    return Promise.resolve({ items: mockAlerts })
   },
 
-  createAlert: async (data: AlertCreate): Promise<Alert> => {
-    const res = await api.post<Alert>('/api/alerts', data)
-    return res.data
+  createAlert: (data: AlertCreate): Promise<Alert> => {
+    // TEMPORARY: Mock create alert for development
+    console.log('Mock creating alert:', data)
+    return Promise.resolve({
+      id: Math.floor(Math.random() * 1000),
+      symbol: data.symbol,
+      rule: data.rule,
+      is_active: 'active',
+      created_at: new Date().toISOString(),
+    })
   },
 
-  deleteAlert: async (alertId: number): Promise<void> => {
-    await api.delete(`/api/alerts/${alertId}`)
-  },
-}
-
-// ================================================
-// SYSTEM API
-// ================================================
-export const systemApi = {
-  health: async (): Promise<any> => {
-    const res = await api.get('/api/health')
-    return res.data
+  deleteAlert: (alertId: number): Promise<void> => {
+    // TEMPORARY: Mock delete alert for development
+    console.log('Mock deleting alert:', alertId)
+    return Promise.resolve()
   },
 }
 
 export default api
+
