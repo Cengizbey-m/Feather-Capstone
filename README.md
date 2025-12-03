@@ -38,7 +38,7 @@ docker-compose up --build
 feather/
 ├── frontend/          # React + TypeScript + Vite
 ├── backend/           # FastAPI + SQLAlchemy
-├── docs/             # Documentation
+├── docs/              # Documentation
 └── .github/workflows/ # CI/CD
 ```
 
